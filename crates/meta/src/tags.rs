@@ -249,8 +249,8 @@ fn value_text(group: &str, tag: u16, v: &Value) -> String {
         }
         Value::Rational(a) if tag == 0x829d && group != "GPS" && a.len() == 1 => format!("f/{}", rational(a[0].0 as f64, a[0].1 as f64)),
         Value::Rational(a) if tag == 0x920a && group != "GPS" && a.len() == 1 => format!("{} mm", rational(a[0].0 as f64, a[0].1 as f64)),
-        Value::Rational(a) => a.iter().map(|(n, d)| rational(*n as f64, *d as f64)).collect::<Vec<_>>().join(", "),
-        Value::SRational(a) => a.iter().map(|(n, d)| rational(*n as f64, *d as f64)).collect::<Vec<_>>().join(", "),
+        Value::Rational(a) => list(&a.iter().map(|(n, d)| rational(*n as f64, *d as f64)).collect::<Vec<_>>()),
+        Value::SRational(a) => list(&a.iter().map(|(n, d)| rational(*n as f64, *d as f64)).collect::<Vec<_>>()),
         Value::Byte(b) | Value::Undefined(b) => {
             // version tags and short printable values read as text
             let printable = b.len() <= 64 && b.iter().all(|c| c.is_ascii_graphic() || *c == b' ' || *c == 0);
@@ -376,6 +376,20 @@ pub fn file_tag_rows(bytes: &[u8]) -> Vec<TagRow> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_rational_arrays_are_capped_like_every_other_array() {
+        // Every other array arm caps at `list`'s 16 values with a count; Rational/SRational
+        // joined the whole array instead (a hostile file's tag row then formats unbounded).
+        let a: Vec<(u32, u32)> = (1..=20u32).map(|i| (i, 1)).collect();
+        let text = value_text("Exif", 0xa000, &Value::Rational(a));
+        assert!(text.ends_with("… (20 values)"), "{text}");
+        assert!(text.contains("16"), "{text}");
+        assert_eq!(value_text("Exif", 0xa000, &Value::Rational(vec![(1, 1)])), "1");
+        let s: Vec<(i32, i32)> = (1..=17i32).map(|i| (-i, 1)).collect();
+        let text = value_text("Exif", 0xa000, &Value::SRational(s));
+        assert!(text.ends_with("… (17 values)"), "{text}");
+    }
 
     #[test]
     fn rational_has_no_trailing_dot() {
