@@ -156,7 +156,7 @@ fn rational(n: f64, d: f64) -> String {
 }
 
 fn list<T: ToString>(v: &[T]) -> String {
-    list_capped(v.iter(), v.len())
+    list_capped(v.iter().map(|x| x.to_string()), v.len())
 }
 
 /// Formats like `list`, but takes the values as an iterator so a caller's
